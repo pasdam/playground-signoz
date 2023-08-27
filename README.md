@@ -15,6 +15,11 @@ stored. Given this is just a playground Clickhouse is deployed in a standalone
 mode, without external Zookeeper, but it rather uses
 [clickhouse-keeper](https://clickhouse.com/docs/en/guides/sre/keeper/clickhouse-keeper).
 
+### logspout
+
+[Logspout](https://github.com/gliderlabs/logspout) routes Docker logs to the
+syslog endpoint exposed by `otel-collector`.
+
 ## Usage
 
 ```shell
