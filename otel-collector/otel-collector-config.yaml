@@ -15,11 +15,28 @@ receivers:
         # please remove names from below if you want to collect logs from them
       - type: filter
         id: signoz_logs_filter
-        expr: 'attributes.container_name matches "^signoz-(logspout|frontend|alertmanager|query-service|otel-collector|otel-collector-metrics|clickhouse|zookeeper)"'
+        expr: 'attributes.container_name matches "^playground-signoz-(logspout|load-hotrod|frontend|alertmanager|query-service|otel-collector|clickhouse-1)-1"'
+  jaeger:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:14250
+      thrift_http:
+        endpoint: 0.0.0.0:14268
 
 processors:
   logstransform/internal:
     operators:
+      - type: regex_parser
+        if: attributes.container_name matches "playground-signoz-hotrod-1"
+        regex: '^(?P<timestamp>[^\t]+)\t(?P<severity>[^\t]+)\t(?P<source>[^\t]+)\t(?P<message>[^\t]+)\t(?P<json_msg>[^\t]+)'
+        severity:
+          parse_from: attributes.severity
+        timestamp:
+          parse_from: attributes.timestamp
+          layout: '%Y-%m-%dT%H:%M:%S.%LZ'
+      - type: json_parser
+        if: '"json_msg" in attributes'
+        parse_from: attributes.json_msg
       - type: trace_parser
         if: '"trace_id" in attributes or "span_id" in attributes'
         trace_id:
@@ -27,22 +44,6 @@ processors:
         span_id:
           parse_from: attributes.span_id
         output: remove_trace_id
-      - type: trace_parser
-        if: '"traceId" in attributes or "spanId" in attributes'
-        trace_id:
-          parse_from: attributes.traceId
-        span_id:
-          parse_from: attributes.spanId
-        output: remove_traceId
-      - id: remove_traceId
-        type: remove
-        if: '"traceId" in attributes'
-        field: attributes.traceId
-        output: remove_spanId
-      - id: remove_spanId
-        type: remove
-        if: '"spanId" in attributes'
-        field: attributes.spanId
       - id: remove_trace_id
         type: remove
         if: '"trace_id" in attributes'
@@ -69,8 +70,15 @@ exporters:
       initial_interval: 5s
       max_interval: 30s
       max_elapsed_time: 300s
+  clickhousetraces:
+    datasource: tcp://clickhouse-1:9000/?database=signoz_traces
+    docker_multi_node_cluster: ${DOCKER_MULTI_NODE_CLUSTER}
+    low_cardinal_exception_grouping: ${LOW_CARDINAL_EXCEPTION_GROUPING}
 
 service:
+  telemetry:
+    logs:
+      level: debug
   pipelines:
     logs:
       receivers:
@@ -80,3 +88,10 @@ service:
         - batch
       exporters:
         - clickhouselogsexporter
+    traces:
+      receivers:
+        - jaeger
+      processors:
+        - batch
+      exporters:
+        - clickhousetraces

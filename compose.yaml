@@ -126,7 +126,7 @@ services:
     <<: *clickhouse-depend
 
   logspout:
-    image: "gliderlabs/logspout:v3.2.14"
+    image: gliderlabs/logspout:v3.2.14
     volumes:
       - /etc/hostname:/etc/host_hostname:ro
       - /var/run/docker.sock:/var/run/docker.sock
@@ -134,3 +134,29 @@ services:
     depends_on:
       - otel-collector
     restart: on-failure
+
+  hotrod:
+    image: jaegertracing/example-hotrod:1.48
+    logging:
+      options:
+        max-size: 50m
+        max-file: "3"
+    command: [ "all" ]
+    environment:
+      - JAEGER_ENDPOINT=http://otel-collector:14268/api/traces
+
+  load-hotrod:
+    image: signoz/locust:1.2.3
+    hostname: load-hotrod
+    environment:
+      ATTACKED_HOST: http://hotrod:8080
+      LOCUST_MODE: standalone
+      NO_PROXY: standalone
+      TASK_DELAY_FROM: 5
+      TASK_DELAY_TO: 30
+      QUIET_MODE: "${QUIET_MODE:-false}"
+      LOCUST_OPTS: "--headless -u 1 -r 1"
+    ports:
+      - 8089:8089
+    volumes:
+      - ./locust/scripts:/locust
