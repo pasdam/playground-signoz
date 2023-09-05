@@ -1,7 +1,6 @@
 version: "2.4"
 
-x-clickhouse-defaults:
-  &clickhouse-defaults
+x-clickhouse-defaults: &clickhouse-defaults
   restart: unless-stopped
   image: clickhouse/clickhouse-server:23.3.10.5-alpine
   tty: true
@@ -11,13 +10,11 @@ x-clickhouse-defaults:
       max-file: "3"
   healthcheck:
     test:
-      [
-        "CMD",
-        "wget",
-        "--spider",
-        "-q",
-        "localhost:8123/ping"
-      ]
+      - "CMD"
+      - "wget"
+      - "--spider"
+      - "-q"
+      - "localhost:8123/ping"
     interval: 30s
     timeout: 5s
     retries: 3
@@ -27,8 +24,7 @@ x-clickhouse-defaults:
       soft: 262144
       hard: 262144
 
-x-clickhouse-depend:
-  &clickhouse-depend
+x-clickhouse-depend: &clickhouse-depend
   depends_on:
     clickhouse-1:
       condition: service_healthy
@@ -44,11 +40,11 @@ services:
       - 9181:9181
     volumes:
       - ./clickhouse/1/data/:/var/lib/clickhouse/
-      - ./clickhouse/1/keeper.xml:/etc/clickhouse-server/config.d/keeper.xml
-      - ./clickhouse/1/macros.xml:/etc/clickhouse-server/config.d/macros.xml
-      - ./clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml
-      - ./clickhouse/config.xml:/etc/clickhouse-server/config.xml
-      - ./clickhouse/users.xml:/etc/clickhouse-server/users.xml
+      - ./clickhouse/1/keeper.xml:/etc/clickhouse-server/config.d/keeper.xml:ro
+      - ./clickhouse/1/macros.xml:/etc/clickhouse-server/config.d/macros.xml:ro
+      - ./clickhouse/cluster.xml:/etc/clickhouse-server/config.d/cluster.xml:ro
+      - ./clickhouse/config.xml:/etc/clickhouse-server/config.xml:ro
+      - ./clickhouse/users.xml:/etc/clickhouse-server/users.xml:ro
 
   alertmanager:
     image: signoz/alertmanager:${ALERTMANAGER_TAG:-0.23.2}
@@ -107,13 +103,10 @@ services:
   otel-collector:
     image: signoz/signoz-otel-collector:${OTELCOL_TAG:-0.79.5}
     command:
-      [
-        "--config=/etc/otel-collector-config.yaml",
-        "--feature-gates=-pkg.translator.prometheus.NormalizeName"
-      ]
-    user: root # required for reading docker container logs
+      - "--config=/etc/otel-collector-config.yaml"
+      - "--feature-gates=-pkg.translator.prometheus.NormalizeName"
     volumes:
-      - ./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      - ./otel-collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=host.name=signoz-host,os.type=linux
@@ -134,9 +127,8 @@ services:
     depends_on:
       - otel-collector
     restart: on-failure
-
   hotrod:
-    image: jaegertracing/example-hotrod:1.48
+    image: jaegertracing/example-hotrod:1.48.0
     logging:
       options:
         max-size: 50m
